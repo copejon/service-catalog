@@ -33,7 +33,7 @@ type server struct {
 }
 
 // CreateHandler creates Broker HTTP handler based on an implementation
-// of a broker.Controller interface.
+// of a broker.Broker interface.
 func CreateHandler(b broker.Broker) http.Handler {
 	s := server{
 		broker: b,
@@ -52,7 +52,7 @@ func CreateHandler(b broker.Broker) http.Handler {
 }
 
 // Start creates the HTTP handler based on an implementation of a
-// broker.Controller interface, and begins to listen on the specified port.
+// broker.Broker interface, and begins to listen on the specified port.
 func Start(serverPort int, b broker.Broker) {
 	glog.Infof("Starting server on %d\n", serverPort)
 	http.Handle("/", CreateHandler(b))

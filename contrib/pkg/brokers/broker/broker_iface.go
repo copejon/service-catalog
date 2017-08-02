@@ -20,7 +20,7 @@ import (
 	"github.com/kubernetes-incubator/service-catalog/pkg/brokerapi"
 )
 
-// Broker defines the APIs that all controllers are expected to support. Implementations
+// Broker defines the APIs that all brokers are expected to support. Implementations
 // should be concurrency-safe
 type Broker interface {
 	Catalog() (*brokerapi.Catalog, error)
