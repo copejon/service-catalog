@@ -20,5 +20,5 @@ import (
 	"testing"
 )
 
-func TestController(t *testing.T) {
+func TestBroker(t *testing.T) {
 }
