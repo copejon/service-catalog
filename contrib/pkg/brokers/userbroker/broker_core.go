@@ -23,6 +23,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/kubernetes-incubator/service-catalog/pkg/brokerapi"
+	"github.com/kubernetes-incubator/service-catalog/contrib/pkg/brokers/broker"
 )
 
 // errNoSuchInstance implements the Error interface.
@@ -66,7 +67,7 @@ const (
 )
 
 // CreateBroker initializes the service broker.  This function is called by server.Start()
-func CreateBroker() Broker {
+func CreateBroker() broker.Broker {
 	var instanceMap = make(map[string]*userProvidedServiceInstance)
 	return &userProvidedBroker{
 		instanceMap: instanceMap,

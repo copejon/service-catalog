@@ -23,18 +23,18 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/gorilla/mux"
-	"github.com/kubernetes-incubator/service-catalog/contrib/pkg/userbroker"
+	"github.com/kubernetes-incubator/service-catalog/contrib/pkg/brokers/broker"
 	"github.com/kubernetes-incubator/service-catalog/pkg/brokerapi"
 	"github.com/kubernetes-incubator/service-catalog/pkg/util"
 )
 
 type server struct {
-	broker userbroker.Broker
+	broker broker.Broker
 }
 
 // CreateHandler creates Broker HTTP handler based on an implementation
 // of a broker.Controller interface.
-func CreateHandler(b userbroker.Broker) http.Handler {
+func CreateHandler(b broker.Broker) http.Handler {
 	s := server{
 		broker: b,
 	}
@@ -53,7 +53,7 @@ func CreateHandler(b userbroker.Broker) http.Handler {
 
 // Start creates the HTTP handler based on an implementation of a
 // broker.Controller interface, and begins to listen on the specified port.
-func Start(serverPort int, b userbroker.Broker) {
+func Start(serverPort int, b broker.Broker) {
 	glog.Infof("Starting server on %d\n", serverPort)
 	http.Handle("/", CreateHandler(b))
 	if err := http.ListenAndServe(":"+strconv.Itoa(serverPort), nil); err != nil {
