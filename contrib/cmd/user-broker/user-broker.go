@@ -22,8 +22,8 @@ import (
 	"os"
 	"path"
 
-	"github.com/kubernetes-incubator/service-catalog/contrib/pkg/broker/server"
-	"github.com/kubernetes-incubator/service-catalog/contrib/pkg/broker/user_provided/controller"
+	"github.com/kubernetes-incubator/service-catalog/contrib/pkg/brokers/userbroker/server"
+	"github.com/kubernetes-incubator/service-catalog/contrib/pkg/brokers/userbroker"
 	"github.com/kubernetes-incubator/service-catalog/pkg"
 )
 
@@ -42,5 +42,5 @@ func main() {
 		return
 	}
 
-	server.Start(options.Port, controller.CreateController())
+	server.Start(options.Port, userbroker.CreateBroker())
 }

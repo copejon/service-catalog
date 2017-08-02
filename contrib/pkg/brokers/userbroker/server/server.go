@@ -23,20 +23,20 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/gorilla/mux"
-	"github.com/kubernetes-incubator/service-catalog/contrib/pkg/broker/controller"
+	"github.com/kubernetes-incubator/service-catalog/contrib/pkg/brokers/broker"
 	"github.com/kubernetes-incubator/service-catalog/pkg/brokerapi"
 	"github.com/kubernetes-incubator/service-catalog/pkg/util"
 )
 
 type server struct {
-	controller controller.Controller
+	broker broker.Broker
 }
 
 // CreateHandler creates Broker HTTP handler based on an implementation
-// of a controller.Controller interface.
-func CreateHandler(c controller.Controller) http.Handler {
+// of a broker.Controller interface.
+func CreateHandler(b broker.Broker) http.Handler {
 	s := server{
-		controller: c,
+		broker: b,
 	}
 
 	var router = mux.NewRouter()
@@ -52,10 +52,10 @@ func CreateHandler(c controller.Controller) http.Handler {
 }
 
 // Start creates the HTTP handler based on an implementation of a
-// controller.Controller interface, and begins to listen on the specified port.
-func Start(serverPort int, c controller.Controller) {
+// broker.Controller interface, and begins to listen on the specified port.
+func Start(serverPort int, b broker.Broker) {
 	glog.Infof("Starting server on %d\n", serverPort)
-	http.Handle("/", CreateHandler(c))
+	http.Handle("/", CreateHandler(b))
 	if err := http.ListenAndServe(":"+strconv.Itoa(serverPort), nil); err != nil {
 		panic(err)
 	}
@@ -64,7 +64,7 @@ func Start(serverPort int, c controller.Controller) {
 func (s *server) catalog(w http.ResponseWriter, r *http.Request) {
 	glog.Infof("Getting Service Broker Catalog...")
 
-	if result, err := s.controller.Catalog(); err == nil {
+	if result, err := s.broker.Catalog(); err == nil {
 		util.WriteResponse(w, http.StatusOK, result)
 	} else {
 		util.WriteResponse(w, http.StatusBadRequest, err)
@@ -75,7 +75,7 @@ func (s *server) getServiceInstance(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["instance_id"]
 	glog.Infof("Getting ServiceInstance ... %s\n", id)
 
-	if result, err := s.controller.GetServiceInstance(id); err == nil {
+	if result, err := s.broker.GetServiceInstance(id); err == nil {
 		util.WriteResponse(w, http.StatusOK, result)
 	} else {
 		util.WriteResponse(w, http.StatusBadRequest, err)
@@ -100,7 +100,7 @@ func (s *server) createServiceInstance(w http.ResponseWriter, r *http.Request) {
 		req.Parameters = make(map[string]interface{})
 	}
 
-	if result, err := s.controller.CreateServiceInstance(id, &req); err == nil {
+	if result, err := s.broker.CreateServiceInstance(id, &req); err == nil {
 		util.WriteResponse(w, http.StatusCreated, result)
 	} else {
 		util.WriteResponse(w, http.StatusBadRequest, err)
@@ -111,7 +111,7 @@ func (s *server) removeServiceInstance(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["instance_id"]
 	glog.Infof("Removing ServiceInstance %s...\n", id)
 
-	if result, err := s.controller.RemoveServiceInstance(id); err == nil {
+	if result, err := s.broker.RemoveServiceInstance(id); err == nil {
 		util.WriteResponse(w, http.StatusOK, result)
 	} else {
 		util.WriteResponse(w, http.StatusBadRequest, err)
@@ -142,7 +142,7 @@ func (s *server) bind(w http.ResponseWriter, r *http.Request) {
 	// Pass in the instanceId to the template.
 	req.Parameters["instanceId"] = instanceID
 
-	if result, err := s.controller.Bind(instanceID, bindingID, &req); err == nil {
+	if result, err := s.broker.Bind(instanceID, bindingID, &req); err == nil {
 		util.WriteResponse(w, http.StatusOK, result)
 	} else {
 		util.WriteResponse(w, http.StatusBadRequest, err)
@@ -154,7 +154,7 @@ func (s *server) unBind(w http.ResponseWriter, r *http.Request) {
 	bindingID := mux.Vars(r)["binding_id"]
 	glog.Infof("UnBind: Service instance guid: %s:%s", bindingID, instanceID)
 
-	if err := s.controller.UnBind(instanceID, bindingID); err == nil {
+	if err := s.broker.UnBind(instanceID, bindingID); err == nil {
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprint(w, "{}") //id)
