@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package userbroker
 
 import (
 	"encoding/json"
@@ -22,7 +22,6 @@ import (
 	"sync"
 
 	"github.com/golang/glog"
-	"github.com/kubernetes-incubator/service-catalog/contrib/pkg/broker/controller"
 	"github.com/kubernetes-incubator/service-catalog/pkg/brokerapi"
 )
 
@@ -50,8 +49,8 @@ type userProvidedServiceInstance struct {
 	Credential *brokerapi.Credential    `json:"credential"`
 }
 
-// userProvidedController implements the OSB API and represents the actual Broker.
-type userProvidedController struct {
+// userProvidedBroker implements the OSB API and represents the actual Broker.
+type userProvidedBroker struct {
 	// rwMutex controls concurrent R and RW access.
 	rwMutex     sync.RWMutex
 	// instanceMap should take instanceIDs as the key and maps to that ID's userProvidedServiceInstance
@@ -66,17 +65,17 @@ const (
 	serviceidDatabasePod  string = "database-1"
 )
 
-// CreateController initializes the service broker.  This function is called by server.Start()
-func CreateController() controller.Controller {
+// CreateBroker initializes the service broker.  This function is called by server.Start()
+func CreateBroker() Broker {
 	var instanceMap = make(map[string]*userProvidedServiceInstance)
-	return &userProvidedController{
+	return &userProvidedBroker{
 		instanceMap: instanceMap,
 	}
 }
 
 // Catalog is an OSB method.  It returns a slice of services.
 // New services should be specified here.
-func (c *userProvidedController) Catalog() (*brokerapi.Catalog, error) {
+func (b *userProvidedBroker) Catalog() (*brokerapi.Catalog, error) {
 	glog.Info("[DEBUG] Handling Catalog Request")
 	return &brokerapi.Catalog{
 		Services: []*brokerapi.Service{
@@ -114,17 +113,17 @@ func (c *userProvidedController) Catalog() (*brokerapi.Catalog, error) {
 // CreateServiceInstance is an OSB method.  It handles provisioning of service instances
 // as determined by the instance's serviceID.
 // New services should be added as a new case in the switch.
-func (c *userProvidedController) CreateServiceInstance(
+func (b *userProvidedBroker) CreateServiceInstance(
 	id string,
 	req *brokerapi.CreateServiceInstanceRequest,
 ) (*brokerapi.CreateServiceInstanceResponse, error) {
-	c.rwMutex.Lock()
-	defer c.rwMutex.Unlock()
+	b.rwMutex.Lock()
+	defer b.rwMutex.Unlock()
 
 	//DEBUG
 	glog.Info("[DEBUG] Create ServiceInstance Request (ID: %q)", id)
 
-	if _, ok := c.instanceMap[id]; ok {
+	if _, ok := b.instanceMap[id]; ok {
 		return nil, fmt.Errorf("Instance %q already exists", id)
 	}
 	// Create New Instance
@@ -143,72 +142,72 @@ func (c *userProvidedController) CreateServiceInstance(
 		}
 	}
 	glog.Infof("Provisioned Instance %q in Namespace %q", newInstance.Id, newInstance.Namespace)
-	c.instanceMap[id] = newInstance
+	b.instanceMap[id] = newInstance
 	return nil, nil
 }
 
 // GetServiceInstance is an OSB method. It gets an instance by the instance's ID and returns it as a json string.
-func (c *userProvidedController) GetServiceInstance(id string) (string, error) {
-	c.rwMutex.RLock()
-	defer c.rwMutex.RUnlock()
+func (b *userProvidedBroker) GetServiceInstance(id string) (string, error) {
+	b.rwMutex.RLock()
+	defer b.rwMutex.RUnlock()
 
 	// DEBUG
 	glog.Infof("[DEBUG] Get ServiceInstance Request (ID: %q)", id)
 
-	if _, ok := c.instanceMap[id]; ! ok {
+	if _, ok := b.instanceMap[id]; ! ok {
 		return "", errNoSuchInstance{instanceID: id }
 	}
-	instance, _ := json.Marshal(c.instanceMap[id])
+	instance, _ := json.Marshal(b.instanceMap[id])
 	return string(instance), nil
 }
 
 // RemoveServiceInstance is an OSB method.  It handles deprovisioning determined by the serviceID.
 // New services should be added as a new case in the switch.
-func (c *userProvidedController) RemoveServiceInstance(id string) (*brokerapi.DeleteServiceInstanceResponse, error) {
-	c.rwMutex.Lock()
-	defer c.rwMutex.Unlock()
+func (b *userProvidedBroker) RemoveServiceInstance(id string) (*brokerapi.DeleteServiceInstanceResponse, error) {
+	b.rwMutex.Lock()
+	defer b.rwMutex.Unlock()
 
 	// DEBUG
 	glog.Infof("[DEBUG] Remove ServiceInstance Request (ID: %q)", id)
 
-	if _, ok := c.instanceMap[id]; ! ok {
+	if _, ok := b.instanceMap[id]; ! ok {
 		return nil, errNoSuchInstance{instanceID: id}
 	}
-	switch c.instanceMap[id].ServiceID {
+	switch b.instanceMap[id].ServiceID {
 	case serviceidUserProvided:
 		// Do nothing.
 	case serviceidDatabasePod:
-		if err := doDBDeprovision(id, c.instanceMap[id].Namespace); err != nil {
+		if err := doDBDeprovision(id, b.instanceMap[id].Namespace); err != nil {
 			err = fmt.Errorf("Error deprovisioning instance %q, %v", id, err)
 			glog.Error(err)
 			return nil, err
 		}
 	}
-	glog.Infof("Deprovisioned Instance: %q", c.instanceMap[id].Id)
-	delete(c.instanceMap, id)
+	glog.Infof("Deprovisioned Instance: %q", b.instanceMap[id].Id)
+	delete(b.instanceMap, id)
 	return nil, nil
 }
 
 // Bind is an OSB method.  It handles bindings as determined by the serviceID.
 // New services should be added as a new case in the switch.
 // TODO implment bindMap to track db bindings (user, bindId, etc.)
-func (c *userProvidedController) Bind(
+func (b *userProvidedBroker) Bind(
 	instanceID,
 	bindingID string,
 	req *brokerapi.BindingRequest,
 ) (*brokerapi.CreateServiceBindingResponse, error) {
-	c.rwMutex.RLock()
-	defer c.rwMutex.RUnlock()
+	b.rwMutex.RLock()
+	defer b.rwMutex.RUnlock()
 
 	// DEBUG
 	glog.Infof("[DEBUG] Bind ServiceInstance Request (ID: %q)", instanceID)
 
-	instance, ok := c.instanceMap[instanceID]
+	instance, ok := b.instanceMap[instanceID]
 	if !ok {
 		return nil, errNoSuchInstance{instanceID: instanceID}
 	}
 	var newCredential *brokerapi.Credential
-	switch c.instanceMap[instanceID].ServiceID {
+	switch b.instanceMap[instanceID].ServiceID {
 	case serviceidUserProvided:
 		// Extract credentials from request or generate dummy
 		newCredential = &brokerapi.Credential{
@@ -225,7 +224,7 @@ func (c *userProvidedController) Bind(
 			"mongoInstancePort": port,
 		}
 	}
-	c.instanceMap[instanceID].Credential = newCredential
+	b.instanceMap[instanceID].Credential = newCredential
 	glog.Infof("Bound Instance: %q", instanceID)
 	return &brokerapi.CreateServiceBindingResponse{Credentials: *newCredential}, nil
 }
@@ -233,13 +232,13 @@ func (c *userProvidedController) Bind(
 // UnBind is an OSB method.  It handles credentials deletion relative to each service.
 // New services should be added as a new case in the switch.
 //TODO implement DB unbinding (delete user, etc)
-func (c *userProvidedController) UnBind(instanceID string, bindingID string) error {
-	c.rwMutex.RLock()
-	defer c.rwMutex.RUnlock()
+func (b *userProvidedBroker) UnBind(instanceID string, bindingID string) error {
+	b.rwMutex.RLock()
+	defer b.rwMutex.RUnlock()
 	// DEBUG
 	glog.Infof("[DEBUG] Unind ServiceInstance Request (ID: %q)", instanceID)
 
-	instance, ok := c.instanceMap[instanceID]
+	instance, ok := b.instanceMap[instanceID]
 	if !ok {
 		return errNoSuchInstance{instanceID: instanceID}
 	}
